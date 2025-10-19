@@ -15,12 +15,16 @@ SCOPE = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/spreadsheets",
          "https://www.googleapis.com/auth/drive.file",
          "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "C:\\Users\\arian\\coffee_app\\credentials.json"  # your Google service account credentials file
-SHEET_NAME = "coffee_app"        # your Google Sheet name
+# Load credentials from Streamlit Secrets
+creds_json = st.secrets["GSPREAD_CREDS"]
+creds_dict = json.loads(creds_json)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
 
-creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
+
 client = gspread.authorize(creds)
-sheet = client.open(SHEET_NAME)
+sheet = client.open_by_key(SPREADSHEET_ID)
+
 
 # ====== Load / Save Functions ======
 def load_df(tab_name):
