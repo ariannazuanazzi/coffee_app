@@ -18,14 +18,18 @@ SCOPE = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/spreadsheets",
          "https://www.googleapis.com/auth/drive.file",
          "https://www.googleapis.com/auth/drive"]
-# Load credentials from Streamlit Secrets
+
+# ----------------- SECRETS -----------------
+# Load credentials JSON from Streamlit Secrets
 creds_json = st.secrets["GSPREAD_CREDS"]
 creds_dict = json.loads(creds_json)
+
+# Authorize
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
-
-SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
-
 client = gspread.authorize(creds)
+
+# Load spreadsheet ID from Secrets
+SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
 sheet = client.open_by_key(SPREADSHEET_ID)
 
 
