@@ -7,9 +7,16 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # ====== GOOGLE SHEET SETUP ======
-SCOPE = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "credentials.json"  # your Google service account credentials file
-SHEET_NAME = "Coffee_App"        # your Google Sheet name
+# Replace this with your Google Sheet ID from the URL
+SPREADSHEET_ID = "1s59BNzyB6QPHwE8B1bRlcyW40XBlQUnYrR37DWqJE6M"
+
+# Google Sheets API scope
+SCOPE = ["https://spreadsheets.google.com/feeds",
+         "https://www.googleapis.com/auth/spreadsheets",
+         "https://www.googleapis.com/auth/drive.file",
+         "https://www.googleapis.com/auth/drive"]
+CREDS_FILE = "C:\\Users\\arian\\coffee_app\\credentials.json"  # your Google service account credentials file
+SHEET_NAME = "coffee_app"        # your Google Sheet name
 
 creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
 client = gspread.authorize(creds)
