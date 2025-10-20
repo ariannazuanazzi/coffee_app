@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 # ====== GOOGLE SHEET SETUP ======
 # Replace this with your Google Sheet ID from the URL
@@ -56,144 +58,190 @@ df_notes = load_df("Notes")
 st.set_page_config(page_title="Coffee App", layout="centered")
 st.title("☕ Coffee App")
 
-choice = st.radio("Select what you want to do:", ["Coffee Brewing", "Coffee Tasting", "Coffee Notes"])
+
+# ----------------------------
+# Tabs
+# ----------------------------
+tabs = st.tabs(["☕ Coffee Brewing", "🌟 Coffee Tasting", "📝 Coffee Notes"])
 
 # ----------------------------
 # COFFEE BREWING
 # ----------------------------
-if choice == "Coffee Brewing":
+with tabs[0]:
     st.header("🧾 Coffee Brewing")
 
-    # Initialize session state for submission tracking
-    if "brewing_submitted" not in st.session_state:
+    if "brewing_data" not in st.session_state:
+        st.session_state.brewing_data = {}
         st.session_state.brewing_submitted = False
 
-    bean = st.text_input("Bean Name")
-    roaster = st.text_input("Roaster")
-    method = st.selectbox("Brew Method", ["V60","Aeropress","French Press","Espresso","Moka Pot","Other"])
-    coffee_g = st.number_input("Coffee (grams)", 0.0, 100.0, 18.0)
-    water_ml = st.number_input("Water (ml)", 0.0, 1000.0, 250.0)
-    aroma = st.slider("Aroma", 0, 10, 5)
-    body = st.slider("Body", 0, 10, 5)
-    sweetness = st.slider("Sweetness", 0, 10, 5)
-    acidity = st.slider("Acidity", 0, 10, 5)
-    balance = st.slider("Balance", 0, 10, 5)
-    notes = st.text_area("Notes / Observations")
+    with st.form("brewing_form"):
+        bean = st.text_input("Bean Name", value=st.session_state.brewing_data.get("Bean", ""))
+        roaster = st.text_input("Roaster", value=st.session_state.brewing_data.get("Roaster", ""))
+        method = st.selectbox(
+            "Brew Method",
+            ["V60","Aeropress","French Press","Espresso","Moka Pot","Other"],
+            index=["V60","Aeropress","French Press","Espresso","Moka Pot","Other"].index(
+                st.session_state.brewing_data.get("Method","V60")
+            )
+        )
+        coffee_g = st.number_input("Coffee (grams)", 0.0, 100.0, value=st.session_state.brewing_data.get("Coffee (g)", 18.0))
+        water_ml = st.number_input("Water (ml)", 0.0, 1000.0, value=st.session_state.brewing_data.get("Water (ml)", 250.0))
+        aroma = st.slider("Aroma", 0, 10, value=st.session_state.brewing_data.get("Aroma",5))
+        body = st.slider("Body", 0, 10, value=st.session_state.brewing_data.get("Body",5))
+        sweetness = st.slider("Sweetness", 0, 10, value=st.session_state.brewing_data.get("Sweetness",5))
+        acidity = st.slider("Acidity", 0, 10, value=st.session_state.brewing_data.get("Acidity",5))
+        balance = st.slider("Balance", 0, 10, value=st.session_state.brewing_data.get("Balance",5))
+        notes = st.text_area("Notes / Observations", value=st.session_state.brewing_data.get("Notes",""))
 
-    # ---------------- SAVE BUTTON ----------------
-    if st.button("Save Brewing Entry"):
-        new_row = {
-            "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "Bean": bean,
-            "Roaster": roaster,
-            "Method": method,
-            "Coffee (g)": coffee_g,
-            "Water (ml)": water_ml,
-            "Aroma": aroma,
-            "Body": body,
-            "Sweetness": sweetness,
-            "Acidity": acidity,
-            "Balance": balance,
-            "Notes": notes
-        }
-        df_brewing = pd.concat([df_brewing, pd.DataFrame([new_row])], ignore_index=True)
-        save_df(df_brewing, "Brewing")
-        st.session_state.brewing_submitted = True
-        st.success("✅ Brewing entry saved!")
+        submitted = st.form_submit_button("Save Brewing Entry")
+        if submitted:
+            st.session_state.brewing_data = {
+                "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "Bean": bean,
+                "Roaster": roaster,
+                "Method": method,
+                "Coffee (g)": coffee_g,
+                "Water (ml)": water_ml,
+                "Aroma": aroma,
+                "Body": body,
+                "Sweetness": sweetness,
+                "Acidity": acidity,
+                "Balance": balance,
+                "Notes": notes
+            }
+            df_brewing = pd.concat([df_brewing, pd.DataFrame([st.session_state.brewing_data])], ignore_index=True)
+            save_df(df_brewing, "Brewing")
+            st.session_state.brewing_submitted = True
 
-        # ====== CARD DISPLAY ======
-        with st.container():
-            st.markdown("---")
-            st.markdown("### ☕ Your Coffee Brew Entry")
-            st.markdown(f"**Bean:** {bean}")
-            st.markdown(f"**Roaster:** {roaster}")
-            st.markdown(f"**Method:** {method}")
-            st.markdown(f"**Coffee (g):** {coffee_g}")
-            st.markdown(f"**Water (ml):** {water_ml}")
-            st.markdown(f"**Notes:** {notes}")
-
-            # Radar chart
-            labels = ['Aroma', 'Body', 'Sweetness', 'Acidity', 'Balance']
-            values = [aroma, body, sweetness, acidity, balance]
-            values += values[:1]
-            angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist()
-            angles += angles[:1]
-
-            fig, ax = plt.subplots(figsize=(4,4), subplot_kw=dict(polar=True))
-            ax.fill(angles, values, color='peru', alpha=0.25)
-            ax.plot(angles, values, color='saddlebrown', linewidth=2)
-            ax.set_yticks(range(0,11,2))
-            ax.set_xticks(angles[:-1])
-            ax.set_xticklabels(labels)
-            ax.set_title("Taste Wheel", pad=15)
-            st.pyplot(fig)
-
-    # ------------- NEW ENTRY BUTTON ----------------
     if st.session_state.brewing_submitted:
-        if st.button("New Brewing Entry"):
+        st.markdown("---")
+        st.markdown("### ☕ Your Coffee Brew Entry")
+        for key, value in st.session_state.brewing_data.items():
+            if key not in ['Aroma','Body','Sweetness','Acidity','Balance']:
+                st.markdown(f"**{key}:** {value}")
+
+        labels = ['Aroma','Body','Sweetness','Acidity','Balance']
+        values = [st.session_state.brewing_data[l] for l in labels]
+        values += values[:1]
+        angles = np.linspace(0,2*np.pi,len(labels), endpoint=False).tolist()
+        angles += angles[:1]
+
+        fig, ax = plt.subplots(figsize=(4,4), subplot_kw=dict(polar=True))
+        ax.fill(angles, values, color='peru', alpha=0.25)
+        ax.plot(angles, values, color='saddlebrown', linewidth=2)
+        ax.set_yticks(range(0,11,2))
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(labels)
+        ax.set_title("Taste Wheel", pad=15)
+        st.pyplot(fig)
+
+        if st.button("➕ Add Another Brewing Entry"):
+            st.session_state.brewing_data = {}
             st.session_state.brewing_submitted = False
-            st.experimental_rerun()  # <-- clears the form
-    # ------------------------------------------------
 
 # ----------------------------
 # COFFEE TASTING
 # ----------------------------
-elif choice == "Coffee Tasting":
+with tabs[1]:
     st.header("🌟 Coffee Tasting")
 
-    # Initialize session state for submission tracking
-    if "tasting_submitted" not in st.session_state:
+    if "tasting_data" not in st.session_state:
+        st.session_state.tasting_data = {}
         st.session_state.tasting_submitted = False
+        st.session_state.tasting_files = []
 
-    cafe = st.text_input("Cafe Name")
-    coffee_type = st.text_input("Coffee Type")
-    tasting_notes = st.text_area("Notes")
-    photos = st.file_uploader("Upload Photos", accept_multiple_files=True, type=["png","jpg","jpeg"])
+    with st.form("tasting_form"):
+        cafe = st.text_input("Cafe Name", value=st.session_state.tasting_data.get("Cafe",""))
+        coffee_type = st.text_input("Coffee Type", value=st.session_state.tasting_data.get("Coffee Type",""))
+        tasting_notes = st.text_area("Notes", value=st.session_state.tasting_data.get("Notes",""))
+        photos = st.file_uploader("Upload Photos", accept_multiple_files=True, type=["png","jpg","jpeg"])
 
-    # ---------------- SAVE BUTTON ----------------
-    if st.button("Save Tasting Entry"):
-        photo_names = [photo.name for photo in photos] if photos else []
-        new_row = {
-            "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "Cafe": cafe,
-            "Coffee Type": coffee_type,
-            "Notes": tasting_notes,
-            "Photos": ", ".join(photo_names)
-        }
-        df_tasting = pd.concat([df_tasting, pd.DataFrame([new_row])], ignore_index=True)
-        save_df(df_tasting, "Tasting")
-        st.session_state.tasting_submitted = True
-        st.success("✅ Tasting entry saved!")
+        submitted = st.form_submit_button("Save Tasting Entry")
+        if submitted:
+            st.session_state.tasting_data = {
+                "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "Cafe": cafe,
+                "Coffee Type": coffee_type,
+                "Notes": tasting_notes
+            }
+            st.session_state.tasting_files = photos  # only for display/download
+            df_tasting = pd.concat([df_tasting, pd.DataFrame([st.session_state.tasting_data])], ignore_index=True)
+            save_df(df_tasting, "Tasting")
+            st.session_state.tasting_submitted = True
 
-        # ====== CARD DISPLAY ======
-        with st.container():
-            st.markdown("---")
-            st.markdown("### 🌟 Your Coffee Tasting Entry")
-            st.markdown(f"**Cafe:** {cafe}")
-            st.markdown(f"**Coffee Type:** {coffee_type}")
-            st.markdown(f"**Notes:** {tasting_notes}")
-
-            if photos:
-                st.markdown("**Photos:**")
-                for photo in photos:
-                    st.image(photo, width=200)
-
-    # ------------- NEW ENTRY BUTTON ----------------
     if st.session_state.tasting_submitted:
-        if st.button("New Tasting Entry"):
+        st.markdown("---")
+        st.markdown("### 🌟 Your Coffee Tasting Entry")
+        st.markdown(f"**Cafe:** {st.session_state.tasting_data['Cafe']}")
+        st.markdown(f"**Coffee Type:** {st.session_state.tasting_data['Coffee Type']}")
+        st.markdown(f"**Notes:** {st.session_state.tasting_data['Notes']}")
+
+        if st.session_state.tasting_files:
+            st.markdown("**Photos:**")
+            for photo in st.session_state.tasting_files:
+                st.image(photo, width=200)
+
+        # ====== Create downloadable card ======
+        card_width, card_height = 500, 600
+        card_img = Image.new("RGB", (card_width, card_height), color="white")
+        draw = ImageDraw.Draw(card_img)
+        y_offset = 20
+        line_height = 40
+
+        draw.text((20, y_offset), f"Cafe: {st.session_state.tasting_data['Cafe']}", fill="black")
+        y_offset += line_height
+        draw.text((20, y_offset), f"Coffee Type: {st.session_state.tasting_data['Coffee Type']}", fill="black")
+        y_offset += line_height
+        draw.text((20, y_offset), f"Notes: {st.session_state.tasting_data['Notes']}", fill="black")
+        y_offset += line_height + 20
+
+        if st.session_state.tasting_files:
+            pil_img = Image.open(st.session_state.tasting_files[0])
+            pil_img.thumbnail((card_width-40, 300))
+            card_img.paste(pil_img, (20, y_offset))
+
+        buf = io.BytesIO()
+        card_img.save(buf, format="PNG")
+        buf.seek(0)
+
+        st.download_button(
+            label="📥 Download Tasting Card",
+            data=buf,
+            file_name=f"{st.session_state.tasting_data['Cafe'].replace(' ','_')}_card.png",
+            mime="image/png"
+        )
+
+        if st.button("➕ Add Another Tasting Entry"):
+            st.session_state.tasting_data = {}
             st.session_state.tasting_submitted = False
-            st.experimental_rerun()  # <-- clears the form
-    # ------------------------------------------------
+            st.session_state.tasting_files = []
 
 # ----------------------------
 # COFFEE NOTES
 # ----------------------------
-elif choice == "Coffee Notes":
+with tabs[2]:
     st.header("📝 Coffee Notes")
-    note_text = st.text_area("Write your note")
 
-    if st.button("Save Note"):
-        new_row = {"Date": datetime.now().strftime("%Y-%m-%d %H:%M"), "Note": note_text}
-        df_notes = pd.concat([df_notes, pd.DataFrame([new_row])], ignore_index=True)
-        save_df(df_notes, "Notes")
-        st.success("✅ Note saved!")
+    if "note_data" not in st.session_state:
+        st.session_state.note_data = {}
+        st.session_state.note_submitted = False
+
+    with st.form("notes_form"):
+        note_title = st.text_input("Title", value=st.session_state.note_data.get("Title",""))
+        note_text = st.text_area("Write your note", value=st.session_state.note_data.get("Note",""))
+        submitted = st.form_submit_button("Save Note")
+        if submitted:
+            st.session_state.note_data = {
+                "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "Title": note_title,
+                "Note": note_text
+            }
+            df_notes = pd.concat([df_notes, pd.DataFrame([st.session_state.note_data])], ignore_index=True)
+            save_df(df_notes, "Notes")
+            st.session_state.note_submitted = True
+
+    if st.session_state.note_submitted:
+        st.success("✅ Note saved! You can add another note below.")
+        if st.button("➕ Add Another Note"):
+            st.session_state.note_data = {}
+            st.session_state.note_submitted = False
