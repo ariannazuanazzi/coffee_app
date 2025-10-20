@@ -148,7 +148,6 @@ with tabs[1]:
     if "tasting_data" not in st.session_state:
         st.session_state.tasting_data = {}
         st.session_state.tasting_submitted = False
-        st.session_state.tasting_files = []
 
     with st.form("tasting_form"):
         cafe = st.text_input("Cafe Name", value=st.session_state.tasting_data.get("Cafe",""))
@@ -158,13 +157,15 @@ with tabs[1]:
 
         submitted = st.form_submit_button("Save Tasting Entry")
         if submitted:
+            photo_names = [photo.name for photo in photos] if photos else []
             st.session_state.tasting_data = {
                 "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "Cafe": cafe,
                 "Coffee Type": coffee_type,
-                "Notes": tasting_notes
+                "Notes": tasting_notes,
+                "Photos": photo_names,
+                "PhotoFiles": photos  # store actual file objects
             }
-            st.session_state.tasting_files = photos  # only for display/download
             df_tasting = pd.concat([df_tasting, pd.DataFrame([st.session_state.tasting_data])], ignore_index=True)
             save_df(df_tasting, "Tasting")
             st.session_state.tasting_submitted = True
@@ -176,10 +177,11 @@ with tabs[1]:
         st.markdown(f"**Coffee Type:** {st.session_state.tasting_data['Coffee Type']}")
         st.markdown(f"**Notes:** {st.session_state.tasting_data['Notes']}")
 
-        if st.session_state.tasting_files:
+        if "PhotoFiles" in st.session_state.tasting_data:
             st.markdown("**Photos:**")
-            for photo in st.session_state.tasting_files:
-                st.image(photo, width=200)
+            for photo_file in st.session_state.tasting_data["PhotoFiles"]:
+                pil_img = Image.open(photo_file)
+                st.image(pil_img, width=200)
 
         # ====== Create downloadable card ======
         card_width, card_height = 500, 600
@@ -195,8 +197,8 @@ with tabs[1]:
         draw.text((20, y_offset), f"Notes: {st.session_state.tasting_data['Notes']}", fill="black")
         y_offset += line_height + 20
 
-        if st.session_state.tasting_files:
-            pil_img = Image.open(st.session_state.tasting_files[0])
+        if "PhotoFiles" in st.session_state.tasting_data and st.session_state.tasting_data["PhotoFiles"]:
+            pil_img = Image.open(st.session_state.tasting_data["PhotoFiles"][0])
             pil_img.thumbnail((card_width-40, 300))
             card_img.paste(pil_img, (20, y_offset))
 
@@ -214,7 +216,7 @@ with tabs[1]:
         if st.button("➕ Add Another Tasting Entry"):
             st.session_state.tasting_data = {}
             st.session_state.tasting_submitted = False
-            st.session_state.tasting_files = []
+
 
 # ----------------------------
 # COFFEE NOTES
